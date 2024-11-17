@@ -1,26 +1,255 @@
-/* eslint-disable max-len */
-/* eslint-disable jsx-a11y/control-has-associated-label */
-import React from 'react';
+import React, { useEffect, useState, useRef, FormEvent } from 'react';
+import {
+  addTodo,
+  deleteTodo,
+  getTodos,
+  updateTodo,
+  USER_ID,
+} from './api/todos';
+import { Todo } from './types/Todo';
+import { Footer as TodoFooter } from './components/Footer';
+import { Filter } from './types/Filter';
+import { TodoItem } from './components/TodoItem';
+import { errorMessages, ErrorMessages } from './types/ErrorMessages';
+import { getFilteredTodos } from './utils/getFilteredTodos';
 import { UserWarning } from './UserWarning';
-
-const USER_ID = 0;
+import cn from 'classnames';
 
 export const App: React.FC = () => {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
+  const [error, setError] = useState<ErrorMessages | null>(null);
+  const [isLoading, setIsLoading] = useState<number[]>([]);
+  const [title, setTitle] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [filter, setFilter] = useState<Filter>(Filter.all);
+
+  const filteredTodos = getFilteredTodos(todos, { status: filter });
+  const activeTodos = todos.filter(todo => !todo.completed);
+  const completedTodos = todos.filter(todo => todo.completed);
+
+  // Завантаження списку задач
+  useEffect(() => {
+    getTodos()
+      .then(setTodos)
+      .catch(() => setError(errorMessages.load)) // Використовуємо setError для оновлення стану помилки
+      .finally(() => {
+        inputRef.current?.focus(); // Фокусуємо поле після завантаження списку
+      });
+  }, []);
+
+  // Очищення помилок через 3 секунди
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    const timerId = setTimeout(() => setError(null), 3000);
+
+    return () => clearTimeout(timerId);
+  }, [error]);
+
+  // Додавання нової задачі
+  const handleAddTodo = (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!title) {
+      setError(errorMessages.title); // Use errorMessages.title for empty title
+
+      return;
+    }
+
+    // --- Disabling input while the request is in progress
+    if (inputRef.current) {
+      inputRef.current.disabled = true;
+    }
+
+    const newTodo: Omit<Todo, 'id'> = {
+      title: title.trim(),
+      userId: USER_ID,
+      completed: false,
+    };
+
+    // --- Temporary todo item for loading state
+    setTempTodo({
+      id: 0,
+      ...newTodo,
+    });
+
+    setIsLoading(curr => [...curr, 0]);
+
+    addTodo(newTodo)
+      .then(newTodoFromServer => {
+        setTodos(currentTodos => [...currentTodos, newTodoFromServer]);
+        setTitle('');
+      })
+      .catch(() => {
+        setError(errorMessages.add); // Update error state for adding failure
+      })
+      .finally(() => {
+        if (inputRef.current) {
+          inputRef.current.disabled = false;
+          inputRef.current.focus();
+        }
+
+        setTempTodo(null);
+        setIsLoading(curr => curr.filter(todoId => todoId !== 0)); // Corrected setIsLoading function
+      });
+  };
+
+  // Видалення задачі
+  const handleDeleteTodo = async (todoId: number) => {
+    setIsLoading(curr => [...curr, todoId]);
+
+    deleteTodo(todoId)
+      .then(() =>
+        setTodos(currentTodos =>
+          currentTodos.filter(todo => todo.id !== todoId),
+        ),
+      )
+      .catch(() => setError(errorMessages.delete)) // Викликаємо setError для оновлення стану помилки
+      .finally(() => {
+        setIsLoading(curr => curr.filter(delTodoId => delTodoId !== todoId)); // Виправлено назву функції setIsLoading
+
+        inputRef.current?.focus();
+      });
+  };
+
+  // Зміна статусу задачі
+  const handleTodoStatusChange = async (todo: Todo) => {
+    setIsLoading(curr => [...curr, todo.id]);
+
+    try {
+      const updatedTodo = await updateTodo({
+        ...todo,
+        completed: !todo.completed,
+      });
+
+      setTodos(curr =>
+        curr.map(t => (t.id === updatedTodo.id ? updatedTodo : t)),
+      );
+    } catch {
+      setError(errorMessages.update);
+    } finally {
+      setIsLoading(curr => curr.filter(id => id !== todo.id));
+    }
+  };
+
+  // Масова зміна статусу задач
+  const handleTodoStatusChangeAll = async () => {
+    const todosToToggle = activeTodos.length ? activeTodos : completedTodos;
+
+    await Promise.allSettled(todosToToggle.map(handleTodoStatusChange));
+  };
+
+  // Очищення виконаних задач
+  const handleClearCompleted = async () => {
+    const completedIds = completedTodos.map(todo => todo.id);
+
+    await Promise.all(completedIds.map(handleDeleteTodo));
+  };
+
   if (!USER_ID) {
     return <UserWarning />;
   }
 
-  return (
-    <section className="section container">
-      <p className="title is-4">
-        Copy all you need from the prev task:
-        <br />
-        <a href="https://github.com/mate-academy/react_todo-app-add-and-delete#react-todo-app-add-and-delete">
-          React Todo App - Add and Delete
-        </a>
-      </p>
+  const handleRenameTodo = async (todo: Todo) => {
+    setIsLoading(curr => [...curr, todo.id]);
 
-      <p className="subtitle">Styles are already copied</p>
-    </section>
+    try {
+      const updatedTodo = await updateTodo({ ...todo });
+
+      setTodos(curr =>
+        curr.map(t => (t.id === updatedTodo.id ? updatedTodo : t)),
+      );
+
+      return updatedTodo.title; // Повертаємо новий заголовок
+    } catch {
+      setError(errorMessages.update);
+      throw new Error('Failed to update todo'); // Генеруємо помилку
+    } finally {
+      setIsLoading(curr => curr.filter(id => id !== todo.id));
+    }
+  };
+
+  return (
+    <div className="todoapp">
+      <h1 className="todoapp__title">todos</h1>
+
+      <div className="todoapp__content">
+        <header className="todoapp__header">
+          {!!todos.length && (
+            <button
+              type="button"
+              className={cn('todoapp__toggle-all', {
+                active: activeTodos.length === 0,
+              })}
+              data-cy="ToggleAllButton"
+              onClick={handleTodoStatusChangeAll}
+            />
+          )}
+
+          <form onSubmit={handleAddTodo}>
+            <input
+              ref={inputRef}
+              value={title}
+              onChange={event => setTitle(event.target.value.trimStart())}
+              data-cy="NewTodoField"
+              type="text"
+              className="todoapp__new-todo"
+              placeholder="What needs to be done?"
+            />
+          </form>
+        </header>
+
+        <section className="todoapp__main" data-cy="TodoList">
+          {filteredTodos.map(todo => (
+            <TodoItem
+              todo={todo}
+              key={todo.id}
+              onRemoveTodo={handleDeleteTodo}
+              onToggleTodoCompletion={handleTodoStatusChange}
+              onUpdateTodoTitle={handleRenameTodo}
+              isLoading={isLoading.includes(todo.id)}
+            />
+          ))}
+          {tempTodo && (
+            <TodoItem
+              todo={tempTodo}
+              onRemoveTodo={() => {}}
+              onToggleTodoCompletion={() => {}}
+              onUpdateTodoTitle={async (todo: Todo) => todo.title}
+              isLoading={isLoading.includes(0)}
+            />
+          )}
+        </section>
+
+        {!!todos.length && (
+          <TodoFooter
+            filter={filter}
+            setFilter={setFilter}
+            activeCount={activeTodos.length}
+            completedCount={completedTodos.length}
+            onClearCompleted={handleClearCompleted}
+          />
+        )}
+      </div>
+
+      <div
+        data-cy="ErrorNotification"
+        className={cn(
+          'notification is-danger is-light has-text-weight-normal',
+          { hidden: !error },
+        )}
+      >
+        <button
+          data-cy="HideErrorButton"
+          type="button"
+          className="delete"
+          onClick={() => setError(null)}
+        />
+        {error}
+      </div>
+    </div>
   );
 };
