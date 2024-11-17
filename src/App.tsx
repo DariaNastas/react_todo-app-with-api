@@ -28,17 +28,15 @@ export const App: React.FC = () => {
   const activeTodos = todos.filter(todo => !todo.completed);
   const completedTodos = todos.filter(todo => todo.completed);
 
-  // Завантаження списку задач
   useEffect(() => {
     getTodos()
       .then(setTodos)
-      .catch(() => setError(errorMessages.load)) // Використовуємо setError для оновлення стану помилки
+      .catch(() => setError(errorMessages.load))
       .finally(() => {
-        inputRef.current?.focus(); // Фокусуємо поле після завантаження списку
+        inputRef.current?.focus();
       });
   }, []);
 
-  // Очищення помилок через 3 секунди
   useEffect(() => {
     if (!error) {
       return;
@@ -49,17 +47,15 @@ export const App: React.FC = () => {
     return () => clearTimeout(timerId);
   }, [error]);
 
-  // Додавання нової задачі
   const handleAddTodo = (event: FormEvent) => {
     event.preventDefault();
 
     if (!title) {
-      setError(errorMessages.title); // Use errorMessages.title for empty title
+      setError(errorMessages.title);
 
       return;
     }
 
-    // --- Disabling input while the request is in progress
     if (inputRef.current) {
       inputRef.current.disabled = true;
     }
@@ -70,7 +66,6 @@ export const App: React.FC = () => {
       completed: false,
     };
 
-    // --- Temporary todo item for loading state
     setTempTodo({
       id: 0,
       ...newTodo,
@@ -84,7 +79,7 @@ export const App: React.FC = () => {
         setTitle('');
       })
       .catch(() => {
-        setError(errorMessages.add); // Update error state for adding failure
+        setError(errorMessages.add);
       })
       .finally(() => {
         if (inputRef.current) {
@@ -93,11 +88,10 @@ export const App: React.FC = () => {
         }
 
         setTempTodo(null);
-        setIsLoading(curr => curr.filter(todoId => todoId !== 0)); // Corrected setIsLoading function
+        setIsLoading(curr => curr.filter(todoId => todoId !== 0));
       });
   };
 
-  // Видалення задачі
   const handleDeleteTodo = async (todoId: number) => {
     setIsLoading(curr => [...curr, todoId]);
 
@@ -107,15 +101,14 @@ export const App: React.FC = () => {
           currentTodos.filter(todo => todo.id !== todoId),
         ),
       )
-      .catch(() => setError(errorMessages.delete)) // Викликаємо setError для оновлення стану помилки
+      .catch(() => setError(errorMessages.delete))
       .finally(() => {
-        setIsLoading(curr => curr.filter(delTodoId => delTodoId !== todoId)); // Виправлено назву функції setIsLoading
+        setIsLoading(curr => curr.filter(delTodoId => delTodoId !== todoId));
 
         inputRef.current?.focus();
       });
   };
 
-  // Зміна статусу задачі
   const handleTodoStatusChange = async (todo: Todo) => {
     setIsLoading(curr => [...curr, todo.id]);
 
@@ -135,14 +128,12 @@ export const App: React.FC = () => {
     }
   };
 
-  // Масова зміна статусу задач
   const handleTodoStatusChangeAll = async () => {
     const todosToToggle = activeTodos.length ? activeTodos : completedTodos;
 
     await Promise.allSettled(todosToToggle.map(handleTodoStatusChange));
   };
 
-  // Очищення виконаних задач
   const handleClearCompleted = async () => {
     const completedIds = completedTodos.map(todo => todo.id);
 
@@ -163,10 +154,10 @@ export const App: React.FC = () => {
         curr.map(t => (t.id === updatedTodo.id ? updatedTodo : t)),
       );
 
-      return updatedTodo.title; // Повертаємо новий заголовок
+      return updatedTodo.title;
     } catch {
       setError(errorMessages.update);
-      throw new Error('Failed to update todo'); // Генеруємо помилку
+      throw new Error('Failed to update todo');
     } finally {
       setIsLoading(curr => curr.filter(id => id !== todo.id));
     }
