@@ -4,7 +4,7 @@ import { Todo } from '../types/Todo';
 
 interface Props {
   todo: Todo;
-  onRemoveTodo?: (todoId: number) => Promise<void>;
+  onRemoveTodo?: (todoId: number) => void;
   onToggleTodoCompletion?: (todo: Todo) => void;
   onUpdateTodoTitle?: (todo: Todo) => Promise<string>;
   isLoading: boolean;

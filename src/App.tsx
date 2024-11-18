@@ -95,16 +95,18 @@ export const App: React.FC = () => {
   const handleDeleteTodo = async (todoId: number) => {
     setIsLoading(curr => [...curr, todoId]);
 
-    deleteTodo(todoId)
+    return deleteTodo(todoId)
       .then(() =>
         setTodos(currentTodos =>
           currentTodos.filter(todo => todo.id !== todoId),
         ),
       )
-      .catch(() => setError(errorMessages.delete))
+      .catch(() => {
+        setError(errorMessages.delete);
+        throw new Error('not deleted');
+      })
       .finally(() => {
         setIsLoading(curr => curr.filter(delTodoId => delTodoId !== todoId));
-
         inputRef.current?.focus();
       });
   };
