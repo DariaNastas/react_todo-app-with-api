@@ -4,7 +4,7 @@ import { Todo } from '../types/Todo';
 
 interface Props {
   todo: Todo;
-  onRemoveTodo?: (todoId: number) => void;
+  onRemoveTodo?: (todoId: number) => Promise<void>;
   onToggleTodoCompletion?: (todo: Todo) => void;
   onUpdateTodoTitle?: (todo: Todo) => Promise<string>;
   isLoading: boolean;
@@ -33,31 +33,35 @@ export const TodoItem: React.FC<Props> = ({
     event.preventDefault();
     const trimmedEditedTitle = editedTitle.trim();
 
+    // Якщо новий заголовок не змінився
     if (trimmedEditedTitle === todo.title) {
       setIsEditingMode(false);
 
       return;
     }
 
+    // Якщо заголовок порожній, спробувати видалити туду
     if (!trimmedEditedTitle) {
-      onRemoveTodo(todo.id);
-      setIsEditingMode(false);
+      try {
+        await onRemoveTodo(id); // Чекаємо завершення видалення
+        setIsEditingMode(false); // Закриваємо режим редагування
+      } catch (error) {
+        // Якщо сталася помилка, не закриваємо форму редагування
+      }
 
       return;
     }
 
+    // Якщо заголовок оновлений
     try {
-      const res = await onUpdateTodoTitle({
+      await onUpdateTodoTitle({
         ...todo,
         title: trimmedEditedTitle,
       });
 
-      if (res === 'ok') {
-        setIsEditingMode(false);
-      } else {
-        throw new Error('Failed to rename');
-      }
+      setIsEditingMode(false); // Закриваємо режим редагування
     } catch (error) {
+      // Якщо сталася помилка, залишаємо форму відкритою
       setIsEditingMode(true);
     }
   };
