@@ -33,37 +33,36 @@ export const TodoItem: React.FC<Props> = ({
     event.preventDefault();
     const trimmedEditedTitle = editedTitle.trim();
 
-    // Якщо новий заголовок не змінився
     if (trimmedEditedTitle === todo.title) {
       setIsEditingMode(false);
 
       return;
     }
 
-    // Якщо заголовок порожній, спробувати видалити туду
     if (!trimmedEditedTitle) {
       try {
-        await onRemoveTodo(id); // Чекаємо завершення видалення
-        setIsEditingMode(false); // Закриваємо режим редагування
-      } catch (error) {
-        // Якщо сталася помилка, не закриваємо форму редагування
-      }
+        await onRemoveTodo(id);
+        setIsEditingMode(false);
+      } catch (error) {}
 
       return;
     }
 
-    // Якщо заголовок оновлений
     try {
       await onUpdateTodoTitle({
         ...todo,
         title: trimmedEditedTitle,
       });
 
-      setIsEditingMode(false); // Закриваємо режим редагування
+      setIsEditingMode(false);
     } catch (error) {
-      // Якщо сталася помилка, залишаємо форму відкритою
       setIsEditingMode(true);
     }
+  };
+
+  const enableEditingMode = () => {
+    setIsEditingMode(true);
+    setEditedTitle(todo.title);
   };
 
   return (
@@ -102,10 +101,7 @@ export const TodoItem: React.FC<Props> = ({
           <span
             data-cy="TodoTitle"
             className="todo__title"
-            onDoubleClick={() => {
-              setIsEditingMode(true);
-              setEditedTitle(todo.title);
-            }}
+            onDoubleClick={enableEditingMode}
           >
             {title}
           </span>

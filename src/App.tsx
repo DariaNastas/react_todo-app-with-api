@@ -9,11 +9,11 @@ import {
 import { Todo } from './types/Todo';
 import { Footer as TodoFooter } from './components/Footer';
 import { Filter } from './types/Filter';
-import { TodoItem } from './components/TodoItem';
 import { errorMessages, ErrorMessages } from './types/ErrorMessages';
 import { getFilteredTodos } from './utils/getFilteredTodos';
 import { UserWarning } from './UserWarning';
 import cn from 'classnames';
+import { TodoList } from './components/TodoList';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -196,25 +196,14 @@ export const App: React.FC = () => {
         </header>
 
         <section className="todoapp__main" data-cy="TodoList">
-          {filteredTodos.map(todo => (
-            <TodoItem
-              todo={todo}
-              key={todo.id}
-              onRemoveTodo={handleDeleteTodo}
-              onToggleTodoCompletion={handleTodoStatusChange}
-              onUpdateTodoTitle={handleRenameTodo}
-              isLoading={isLoading.includes(todo.id)}
-            />
-          ))}
-          {tempTodo && (
-            <TodoItem
-              todo={tempTodo}
-              onRemoveTodo={() => {}}
-              onToggleTodoCompletion={() => {}}
-              onUpdateTodoTitle={async (todo: Todo) => todo.title}
-              isLoading={isLoading.includes(0)}
-            />
-          )}
+          <TodoList
+            todos={filteredTodos}
+            tempTodo={tempTodo}
+            onRemoveTodo={handleDeleteTodo}
+            onToggleTodoCompletion={handleTodoStatusChange}
+            onUpdateTodoTitle={handleRenameTodo}
+            isLoading={isLoading}
+          />
         </section>
 
         {!!todos.length && (
